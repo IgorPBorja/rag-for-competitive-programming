@@ -8,6 +8,9 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+beautifulsoup4 = "^4.13.3"
+html2text = "^2024.2.26"
+clang-format = "^20.1.0"
 
 
 [build-system]

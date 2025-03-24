@@ -175,3 +175,6 @@ cython_debug/
 
 # IDE files
 .idea
+
+# project-specific files
+data
