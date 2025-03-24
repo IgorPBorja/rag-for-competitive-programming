@@ -178,3 +178,5 @@ cython_debug/
 
 # project-specific files
 data
+settings.local.toml
+.secrets.local.toml

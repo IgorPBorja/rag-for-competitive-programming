@@ -1,136 +1,49 @@
-import sys
-import tempfile
-import subprocess
+import asyncio
+import aiohttp
 
-from html2text import HTML2Text
-from bs4 import BeautifulSoup, Tag, PageElement
+from asyncio import Semaphore
 
-# PageElement is a generic element in the parse tree
-# Tag, NavigableString, etc are all subclasses of PageElement
+from crawlers.cp_algo.parser import CPAlgoParser
+from config import settings
+from logging_utils import get_logger
 
-class CodeBlockFormatter:
-    """
-    Code in CPAlgorithms is formatted like
-    <div class="highlight">
-        <pre>
-            <code>
-                <span class="something">...</span>
-                ...
-            </code>
-        </pre>
-    </div>
-    where in each span tag the class name identifies type of element for syntax highlighting
-    (or if it is whitespace, in which case something="w") and the content is the smallest possible unit/token
+MAX_POOL_SIZE = settings.crawlers.cp_algo.MAX_POOL_SIZE
 
-    NOTE: assumes code is c++, since it uses clang-format library
-    """
-    @staticmethod
-    def format_block(block: Tag) -> Tag:
-        """
-        Code block under <code> tag
-        :param block: HTML <code> tag/subtree
-        :return: Tag, but with content formatted
-        """
-        code_tokens: list[str] = []
-        for i, element in enumerate(block.contents):
-            if not isinstance(element, Tag) or element.name != "span":
-                continue
-            if element.get("class") == ["w"]:
-                code_tokens.append(" ")
-            else:
-                code_tokens.append(element.text)
-        unformatted_code = "".join(code_tokens)
-        with tempfile.NamedTemporaryFile(prefix="cp_algo_", suffix=".cpp") as fpath:
-            with open(fpath.name, "w") as f:
-                f.write(unformatted_code)
-            subprocess.call(["clang-format", "-i", f.name])  # edits in-place
-            with open(fpath.name, "r") as f:
-                formatted_code = f.read().strip()
-        block.clear()
-        block.append(f"```\n{formatted_code}\n```")
-        return block
-
-    @staticmethod
-    def format_all_blocks(html: Tag) -> Tag:
-        for element in html.children:
-            # TODO can code come without the "pre" tag?
-            if (
-                isinstance(element, Tag)
-                and element.name == "div"
-                and element.get("class") == ["highlight"]
-            ):
-                formatted_code_block = CodeBlockFormatter.format_block(element.pre.code)
-                element.pre.clear()
-                element.pre.append(formatted_code_block)
-        return html
+semaphore = Semaphore(MAX_POOL_SIZE)
+logger = get_logger(__name__)
 
 
-def to_markdown(html: PageElement) -> str:
-    """
-    Converts HTML Page element to markdown
-    :param html:
-    :return: markdown version of HTML Page Element
-    """
-    converter = HTML2Text()
-    return converter.handle(str(html))
-
-
-def get_base_content(html: BeautifulSoup) -> Tag:
-    """
-    Extracts article tag, where main article content
-    lies in the cp-algorithms webpages
-    :param html:
-    :return: article tag
-    """
-    article_tag = html.find("article")
-    return article_tag
-
-
-def remove_headers_until_first_h1(article: Tag) -> Tag:
-    """
-    Removes all HTML elements until main title (first h1 tag).
-    In cp-algorithms blogs there is usually no content before those titles
-    :param article:
-    :return: modified article with content before title removed
-    """
-    found_h1 = True
-    while True:
+async def get_markdown_from_url(session: aiohttp.ClientSession, url: str) -> str:
+    async with semaphore:  # this limits request amounts by current semaphore value
         try:
-            # we have to call iter everytime since calling extract
-            # messes up the iterator (the __next__ skips one element)
-            element = next(iter(article.children))
-        except StopIteration:
-            break
-        # print(f"Element = '{element}'")
-        if isinstance(element, Tag) and element.name == "h1":
-            found_h1 = True
-            break
-        else:
-            element.extract()
-    if not found_h1:
-        raise ValueError(f"Malformed HTML: no main title (h1 tag)")
-    return article
-
-def parse(raw_html: str) -> str:
-    """
-    Parses the raw HTML string representing the webpage and returns
-    the article converted to markdown
-
-    :param raw_html:
-    :return: markdown with only the relevant content
-    """
-    html = BeautifulSoup(raw_html, 'html.parser')
-    article = get_base_content(html)
-    article = remove_headers_until_first_h1(article)
-    article = CodeBlockFormatter.format_all_blocks(article)
-    with open("data/dbg_html", "w") as dump_file:
-        print(article, file=dump_file)
-    return to_markdown(article)
+            async with session.get(url) as response:
+                response.raise_for_status()
+                raw_html = await response.text()
+        except Exception as e:
+            logger.exception(f"An error occurred on crawling URL='{url}': '{e}'")
+            raise e
+        try:
+            return CPAlgoParser.parse(raw_html)
+        except Exception as e:
+            logger.exception(f"An unexpected error occurred when parsing html from URL='{url}': '{e}'")
+            raise e
 
 
-if __name__ == "__main__":
-    fpath = sys.argv[1]
-    with open(fpath, 'r') as f:
-        raw_content = f.read()
-    with open("data/dbg", "w") as dump_file:
-        print(parse(raw_content), file=dump_file)
+async def crawl(urls: list[str]):
+    tasks = [asyncio.create_task(get_markdown_from_url(url)) for url in urls]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    exception_count = len([r for r in results if isinstance(r, Exception)])
+    success_count = len(urls) - exception_count
+    logger.info(f"Crawled batch of {len(urls)} URLs: {success_count} OK, {exception_count} failed")
+    # TODO save to database here
+
+
+# TODO: someway to find the URLs from CPAlgo
+# maybe get from database
+async def get_urls() -> list[str]:
+    raise NotImplementedError
+
+
+if __name__ == '__main__':
+    urls = asyncio.run(get_urls())
+    asyncio.run(crawl(urls))
