@@ -13,6 +13,8 @@ html2text = "^2024.2.26"
 clang-format = "^20.1.0"
 aiohttp = "^3.11.14"
 dynaconf = "^3.2.10"
+sqlalchemy = "^2.0.41"
+aiosqlite = "^0.21.0"
 
 
 [build-system]
