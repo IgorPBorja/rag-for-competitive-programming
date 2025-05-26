@@ -182,3 +182,5 @@ settings.local.toml
 .secrets.local.toml
 # sqlite databases
 *.db
+# backup file for database
+*.db.bak

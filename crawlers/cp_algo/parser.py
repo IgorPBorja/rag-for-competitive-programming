@@ -117,6 +117,21 @@ class CPAlgoParser:
         return article
 
     @staticmethod
+    def remove_contributors(article: Tag) -> Tag:
+        """
+        Remove contributors section
+        
+        :param article:
+        :return: modified article with content before title removed
+        """
+        for child in article.children:
+            if isinstance(child, Tag) and child.find("span", class_="contributors-text"):
+                # found contributors tag
+                child.extract()
+                break
+        return article
+
+    @staticmethod
     def parse(raw_html: str) -> str:
         """
         Parses the raw HTML string representing the webpage and returns
@@ -128,9 +143,10 @@ class CPAlgoParser:
         html = BeautifulSoup(raw_html, 'html.parser')
         article = CPAlgoParser.get_base_content(html)
         article = CPAlgoParser.remove_headers_until_first_h1(article)
+        article = CPAlgoParser.remove_contributors(article)
         article = CodeBlockFormatter.format_all_blocks(article)
         with open("data/dbg_html", "w") as dump_file:
-            print(article, file=dump_file)
+            dump_file.write(str(article))
         return CPAlgoParser.to_markdown(article)
 
     @staticmethod
