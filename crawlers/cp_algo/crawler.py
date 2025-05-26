@@ -5,15 +5,26 @@ from asyncio import Semaphore
 
 from crawlers.cp_algo.parser import CPAlgoParser
 from config import settings
+from db.dataset import DATASET, URL, Page
+from db.enums import PageTypeEnum
 from logging_utils import get_logger
 
 MAX_POOL_SIZE = settings.crawlers.cp_algo.MAX_POOL_SIZE
+BASE_URL = "https://cp-algorithms.com/navigation.html"
 
 semaphore = Semaphore(MAX_POOL_SIZE)
 logger = get_logger(__name__)
 
 
-async def get_markdown_from_url(session: aiohttp.ClientSession, url: str) -> str:
+async def _get_markdown_from_url(url: str, session: aiohttp.ClientSession) -> tuple[str, str]:
+    """
+    Get markdown content from URL
+    
+    Returns original URL (acts as a task ID) and the markdown content
+    Might raise Exception in the crawling or the parsing
+
+    :retunrs: url and markdown content
+    """
     async with semaphore:  # this limits request amounts by current semaphore value
         try:
             async with session.get(url) as response:
@@ -23,24 +34,40 @@ async def get_markdown_from_url(session: aiohttp.ClientSession, url: str) -> str
             logger.exception(f"An error occurred on crawling URL='{url}': '{e}'")
             raise e
         try:
-            return CPAlgoParser.parse(raw_html)
+            return url, CPAlgoParser.parse(raw_html)
         except Exception as e:
             logger.exception(f"An unexpected error occurred when parsing html from URL='{url}': '{e}'")
             raise e
 
 
 async def crawl(urls: list[str]):
-    tasks = [asyncio.create_task(get_markdown_from_url(url)) for url in urls]
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    exception_count = len([r for r in results if isinstance(r, Exception)])
-    success_count = len(urls) - exception_count
-    logger.info(f"Crawled batch of {len(urls)} URLs: {success_count} OK, {exception_count} failed")
-    # TODO save to database here
+    async with aiohttp.ClientSession() as http_session, DATASET.async_session() as db_session:
+        urls = set(urls)  # force unique
+        tasks = [asyncio.create_task(_get_markdown_from_url(url, http_session), name=url) for url in urls]
+
+        success_count, exception_count = 0, 0
+        for task in asyncio.as_completed(tasks):
+            try:
+                url, content = await task
+            except Exception as e:
+                logger.exception(f"Crawling {url=} went wrong: error '''{e}'''")
+                exception_count += 1
+            else:
+                url_item = await URL.get_or_create(url, db_session)
+                db_session.add(Page(
+                    content=content,
+                    url_id=url_item.id,
+                    page_type=PageTypeEnum.CPALGO,
+                    # page_uuid="cpalgo"  # TODO set uuid
+                ))
+                await db_session.commit()
+        logger.info(f"Crawled batch of {len(urls)} URLs: {success_count} OK, {exception_count} failed")
 
 
 # TODO: someway to find the URLs from CPAlgo
 # maybe get from database
 async def get_urls() -> list[str]:
+    return ["https://cp-algorithms.com/algebra/binary-exp.html"]
     raise NotImplementedError
 
 
