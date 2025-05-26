@@ -172,3 +172,15 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# IDE files
+.idea
+
+# project-specific files
+data
+settings.local.toml
+.secrets.local.toml
+# sqlite databases
+*.db
+# backup file for database
+*.db.bak
