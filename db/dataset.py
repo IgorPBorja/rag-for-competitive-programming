@@ -32,7 +32,7 @@ class URL(BaseModel):
     __table_args__ = (UniqueConstraint("url", name="unique_url_key"),)
 
     @staticmethod
-    async def get_or_create(url: str, session: AsyncSession, description: str | None = None, page_uuid: str | None = None) -> tuple["URL", bool]:
+    async def get_or_create(url: str, session: AsyncSession, description: str | None = None) -> tuple["URL", bool]:
         """
         Retrieves url item, and if does not exist, create it. Does not commit.
 
@@ -40,7 +40,7 @@ class URL(BaseModel):
         """
         item = await session.scalar(select(URL).where(URL.url == url))
         if not item:
-            item = URL(url=url, description=description, page_uuid=page_uuid)
+            item = URL(url=url, description=description)
             session.add(item)
             await session.flush()
             return item, True

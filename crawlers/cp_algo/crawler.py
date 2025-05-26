@@ -9,6 +9,7 @@ from db.dataset import DATASET, URL, Page
 from db.enums import PageTypeEnum, URLCrawlerStatusEnum
 from logging_utils import get_logger
 
+BASE_URL = "https://cp-algorithms.com"
 MAX_POOL_SIZE = settings.crawlers.cp_algo.MAX_POOL_SIZE
 
 semaphore = Semaphore(MAX_POOL_SIZE)
@@ -59,11 +60,13 @@ async def crawl(urls: list[str]):
                 logger.exception(f"Crawling {url=} went wrong: error '''{e}'''")
                 exception_count += 1
             else:
+                # url is <BASE_URL>/section/
+                section_name = url.removeprefix(BASE_URL + "/").removesuffix(".html")
                 db_session.add(Page(
                     content=content,
                     url_id=url_map[url].id,
                     page_type=PageTypeEnum.CPALGO,
-                    # page_uuid="cpalgo"  # TODO set uuid
+                    page_uuid=f"cpalgo/{section_name}",
                 ))
                 url_map[url].crawl_status = URLCrawlerStatusEnum.DONE
                 success_count += 1
@@ -72,8 +75,6 @@ async def crawl(urls: list[str]):
         logger.info(f"Crawled total of {len(urls)} URLs: {success_count} OK, {exception_count} failed")
 
 
-# TODO: someway to find the URLs from CPAlgo
-# maybe get from database
 async def get_urls() -> list[str]:
     NAVIGATION_URL = "https://cp-algorithms.com/navigation.html"
     async with aiohttp.ClientSession() as http_session:
