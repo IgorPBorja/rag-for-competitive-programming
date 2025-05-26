@@ -180,3 +180,5 @@ cython_debug/
 data
 settings.local.toml
 .secrets.local.toml
+# sqlite databases
+*.db

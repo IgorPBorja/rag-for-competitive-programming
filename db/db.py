@@ -47,4 +47,4 @@ class DB:
             await _session.rollback()
             raise e
         finally:
-            _session.close()
+            await _session.close()

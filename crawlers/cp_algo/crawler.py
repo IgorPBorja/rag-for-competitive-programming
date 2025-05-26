@@ -6,7 +6,7 @@ from asyncio import Semaphore
 from crawlers.cp_algo.parser import CPAlgoParser
 from config import settings
 from db.dataset import DATASET, URL, Page
-from db.enums import PageTypeEnum
+from db.enums import PageTypeEnum, URLCrawlerStatusEnum
 from logging_utils import get_logger
 
 MAX_POOL_SIZE = settings.crawlers.cp_algo.MAX_POOL_SIZE
@@ -43,6 +43,13 @@ async def _get_markdown_from_url(url: str, session: aiohttp.ClientSession) -> tu
 async def crawl(urls: list[str]):
     async with aiohttp.ClientSession() as http_session, DATASET.async_session() as db_session:
         urls = set(urls)  # force unique
+        url_map = {}
+        # queue URLs to crawl
+        for url in urls:
+            url_item, _ = await URL.get_or_create(url, db_session)
+            url_item.crawl_status = URLCrawlerStatusEnum.QUEUED
+            url_map[url] = url_item
+        await db_session.commit()
         tasks = [asyncio.create_task(_get_markdown_from_url(url, http_session), name=url) for url in urls]
 
         success_count, exception_count = 0, 0
@@ -53,13 +60,14 @@ async def crawl(urls: list[str]):
                 logger.exception(f"Crawling {url=} went wrong: error '''{e}'''")
                 exception_count += 1
             else:
-                url_item = await URL.get_or_create(url, db_session)
                 db_session.add(Page(
                     content=content,
-                    url_id=url_item.id,
+                    url_id=url_map[url].id,
                     page_type=PageTypeEnum.CPALGO,
                     # page_uuid="cpalgo"  # TODO set uuid
                 ))
+                url_map[url].crawl_status = URLCrawlerStatusEnum.DONE
+                success_count += 1
                 await db_session.commit()
         logger.info(f"Crawled batch of {len(urls)} URLs: {success_count} OK, {exception_count} failed")
 

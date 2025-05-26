@@ -8,8 +8,8 @@ def get_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     ch = logging.StreamHandler()
     # attributes for string formatting are taken from LogRecord attrs
     format_string = """
-        %(asctime)s - %(levenName)s - %(module)s.%(funcName)s:%(lineno)s - %(message)s
-    """
+        %(asctime)s - %(levelname)s - %(pathname)s.%(funcName)s:%(lineno)s - %(message)s
+    """.strip()
     ch.setFormatter(logging.Formatter(format_string))
     logger.addHandler(ch)
     return logger
