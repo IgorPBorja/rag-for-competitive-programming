@@ -23,6 +23,7 @@ class URL(BaseModel):
     __tablename__ = "url"
     id: Mapped[int] = mapped_column(primary_key=True)
     url: Mapped[str] = mapped_column(VARCHAR(500))
+    description: Mapped[str | None] = mapped_column(TEXT)
     crawl_status: Mapped[URLCrawlerStatusEnum] = mapped_column(Enum(URLCrawlerStatusEnum), default=URLCrawlerStatusEnum.PENDING)
     created_at: Mapped[datetime_default_now]
     updated_at: Mapped[datetime_default_now]
@@ -31,7 +32,7 @@ class URL(BaseModel):
     __table_args__ = (UniqueConstraint("url", name="unique_url_key"),)
 
     @staticmethod
-    async def get_or_create(url: str, session: AsyncSession) -> tuple["URL", bool]:
+    async def get_or_create(url: str, session: AsyncSession, description: str | None = None, page_uuid: str | None = None) -> tuple["URL", bool]:
         """
         Retrieves url item, and if does not exist, create it. Does not commit.
 
@@ -39,7 +40,7 @@ class URL(BaseModel):
         """
         item = await session.scalar(select(URL).where(URL.url == url))
         if not item:
-            item = URL(url=url)
+            item = URL(url=url, description=description, page_uuid=page_uuid)
             session.add(item)
             await session.flush()
             return item, True

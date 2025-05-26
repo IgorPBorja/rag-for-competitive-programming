@@ -133,6 +133,34 @@ class CPAlgoParser:
             print(article, file=dump_file)
         return CPAlgoParser.to_markdown(article)
 
+    @staticmethod
+    def parse_navigation_page(raw_html: str) -> list[tuple[str, str]]:
+        """
+        From the raw HTML content of the navigation page, return the list of URLs
+        with the links for the articles/pages and the descriptions
+        """
+        BASE_URL = "https://cp-algorithms.com"
+        links = []
+        html = BeautifulSoup(raw_html, 'html.parser')
+        for tag in html.descendants:
+            if isinstance(tag, Tag):
+                if (
+                    tag.name == "a"
+                    and tag.has_attr("href")
+                    and tag.has_attr("class")
+                    and "md-nav__link" in tag.attrs["class"]
+                    and "/" in tag.attrs["href"]  # links in top-level are not articles
+                    # article links are like <category>/<page_name>.html
+                ):
+                    link = "/".join([BASE_URL, tag.attrs["href"]])
+                    description = None
+                    # Get the first child <span class="md-ellipsis"> inside the current <a> tag
+                    span = tag.find("span", class_="md-ellipsis")
+                    if span:
+                        description = span.get_text().strip()
+                    links.append((link, description))
+        return links
+
 
 if __name__ == "__main__":
     fpath = sys.argv[1]

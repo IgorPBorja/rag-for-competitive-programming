@@ -10,7 +10,6 @@ from db.enums import PageTypeEnum, URLCrawlerStatusEnum
 from logging_utils import get_logger
 
 MAX_POOL_SIZE = settings.crawlers.cp_algo.MAX_POOL_SIZE
-BASE_URL = "https://cp-algorithms.com/navigation.html"
 
 semaphore = Semaphore(MAX_POOL_SIZE)
 logger = get_logger(__name__)
@@ -69,14 +68,24 @@ async def crawl(urls: list[str]):
                 url_map[url].crawl_status = URLCrawlerStatusEnum.DONE
                 success_count += 1
                 await db_session.commit()
-        logger.info(f"Crawled batch of {len(urls)} URLs: {success_count} OK, {exception_count} failed")
+                logger.info(f"Crawled {url=} successfully")
+        logger.info(f"Crawled total of {len(urls)} URLs: {success_count} OK, {exception_count} failed")
 
 
 # TODO: someway to find the URLs from CPAlgo
 # maybe get from database
 async def get_urls() -> list[str]:
-    return ["https://cp-algorithms.com/algebra/binary-exp.html"]
-    raise NotImplementedError
+    NAVIGATION_URL = "https://cp-algorithms.com/navigation.html"
+    async with aiohttp.ClientSession() as http_session:
+        async with http_session.get(NAVIGATION_URL) as response:
+            html_content = await response.text()
+    links = CPAlgoParser.parse_navigation_page(html_content)
+    async with DATASET.async_session() as db_session:
+        # create links
+        for link, description in links:
+            await URL.get_or_create(link, db_session, description)
+        await db_session.commit()
+    return [url for url, _ in links]
 
 
 if __name__ == '__main__':
