@@ -6,7 +6,7 @@ from sqlalchemy.orm import (
     Mapped,
     Mapper,
     mapped_column,
-    Session,
+    relationship,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -47,6 +47,8 @@ class URL(BaseModel):
         else:
             return item, False
 
+    page: Mapped["Page"] = relationship(back_populates="url")
+
 
 class Page(BaseModel):
     __tablename__ = "page"
@@ -59,6 +61,8 @@ class Page(BaseModel):
     created_at: Mapped[datetime_default_now]
     updated_at: Mapped[datetime_default_now]
     deleted_at: Mapped[datetime | None]
+
+    url: Mapped["URL"] = relationship(back_populates="page")
 
 
 @event.listens_for(Page, "before_update")

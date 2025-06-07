@@ -9,6 +9,12 @@
             "type": "debugpy",
             "request": "launch",
             "module": "crawlers.cp_algo.crawler"
+        },
+        {
+            "name": "vector db cli",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "db.vector_db",
         }
     ]
 }

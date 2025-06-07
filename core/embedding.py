@@ -56,7 +56,7 @@ class Embedder:
             while (pages := session.scalars(
                 select(Page)
                 .where(Page.id > last_id)
-                .order_by(Page.id.desc())
+                .order_by(Page.id)
                 .limit(batch_size)
             ).all()):
                 last_id = pages[-1].id
