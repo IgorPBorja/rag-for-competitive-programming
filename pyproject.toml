@@ -17,6 +17,8 @@ sqlalchemy = "^2.0.41"
 aiosqlite = "^0.21.0"
 ollama = "^0.5.1"
 langchain = "^0.3.25"
+faiss-cpu = "^1.11.0"
+ipykernel = "^6.29.5"
 
 
 [build-system]
