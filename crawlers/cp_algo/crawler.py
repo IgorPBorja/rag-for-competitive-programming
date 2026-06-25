@@ -5,8 +5,8 @@ from asyncio import Semaphore
 
 from crawlers.cp_algo.parser import CPAlgoParser
 from config import settings
-from db.dataset import DATASET, URL, Page
-from db.enums import PageTypeEnum, URLCrawlerStatusEnum
+from content.db.entities import DB, URL, Page
+from content.enums import CrawlerSourceEnum, CrawlerStatusEnum
 from logging_utils import get_logger
 
 BASE_URL = "https://cp-algorithms.com"
@@ -41,13 +41,13 @@ async def _get_markdown_from_url(url: str, session: aiohttp.ClientSession) -> tu
 
 
 async def crawl(urls: list[str]):
-    async with aiohttp.ClientSession() as http_session, DATASET.async_session() as db_session:
+    async with aiohttp.ClientSession() as http_session, DB.async_session() as db_session:
         urls = set(urls)  # force unique
         url_map = {}
         # queue URLs to crawl
         for url in urls:
             url_item, _ = await URL.get_or_create(url, db_session)
-            url_item.crawl_status = URLCrawlerStatusEnum.QUEUED
+            url_item.crawl_status = CrawlerStatusEnum.QUEUED
             url_map[url] = url_item
         await db_session.commit()
         tasks = [asyncio.create_task(_get_markdown_from_url(url, http_session), name=url) for url in urls]
@@ -65,10 +65,10 @@ async def crawl(urls: list[str]):
                 db_session.add(Page(
                     content=content,
                     url_id=url_map[url].id,
-                    page_type=PageTypeEnum.CPALGO,
+                    page_type=CrawlerSourceEnum.CPALGO,
                     page_uuid=f"cpalgo/{section_name}",
                 ))
-                url_map[url].crawl_status = URLCrawlerStatusEnum.DONE
+                url_map[url].crawl_status = CrawlerStatusEnum.DONE
                 success_count += 1
                 await db_session.commit()
                 logger.info(f"Crawled {url=} successfully")
@@ -81,7 +81,7 @@ async def get_urls() -> list[str]:
         async with http_session.get(NAVIGATION_URL) as response:
             html_content = await response.text()
     links = CPAlgoParser.parse_navigation_page(html_content)
-    async with DATASET.async_session() as db_session:
+    async with DB.async_session() as db_session:
         # create links
         for link, description in links:
             await URL.get_or_create(link, db_session, description)

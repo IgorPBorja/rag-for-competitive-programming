@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session, sessionmaker, DeclarativeBase
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 
-class DB:
+class _DB:
     def __init__(
         self,
         sync_url: str,
