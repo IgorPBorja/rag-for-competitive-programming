@@ -6,6 +6,7 @@ class CrawlerSourceEnum(Enum):
 
 class ResourceCrawlerStatusEnum(Enum):
     NOT_STARTED = "NOT_STARTED"
+    QUEUED = "QUEUED"
     IN_PROGRESS = "IN_PROGRESS"
     DONE = "DONE"
     FAILED = "FAILED"

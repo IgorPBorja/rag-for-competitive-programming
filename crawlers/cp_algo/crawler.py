@@ -5,7 +5,7 @@ from asyncio import Semaphore
 
 from crawlers.cp_algo.parser import CPAlgoParser
 from config import settings
-from content.db.entities import DB, URL, Page
+from content.db.entities import SQLITE_DB, URL, Page
 from content.enums import CrawlerSourceEnum, CrawlerStatusEnum
 from logging_utils import get_logger
 
@@ -41,7 +41,7 @@ async def _get_markdown_from_url(url: str, session: aiohttp.ClientSession) -> tu
 
 
 async def crawl(urls: list[str]):
-    async with aiohttp.ClientSession() as http_session, DB.async_session() as db_session:
+    async with aiohttp.ClientSession() as http_session, SQLITE_DB.async_session() as db_session:
         urls = set(urls)  # force unique
         url_map = {}
         # queue URLs to crawl
@@ -81,7 +81,7 @@ async def get_urls() -> list[str]:
         async with http_session.get(NAVIGATION_URL) as response:
             html_content = await response.text()
     links = CPAlgoParser.parse_navigation_page(html_content)
-    async with DB.async_session() as db_session:
+    async with SQLITE_DB.async_session() as db_session:
         # create links
         for link, description in links:
             await URL.get_or_create(link, db_session, description)

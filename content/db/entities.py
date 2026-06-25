@@ -11,13 +11,11 @@ from sqlalchemy.orm import (
 from sqlalchemy.types import JSON
 
 from content.entities import Resource, Page
-from content.db.db import _DB
+from content.db.db import KnowledgeDatabase
 from content.enums import CrawlerSourceEnum, ResourceCrawlerStatusEnum, PageCrawlerStatusEnum 
 
 datetime_default_now = Annotated[Mapped[datetime], mapped_column(TIMESTAMP, default=datetime.now(), server_default=func.now())]
 
-SYNC_URL = "sqlite:///dataset.db"
-ASYNC_URL = "sqlite+aiosqlite:///dataset.db"
 BaseModel = declarative_base()
 
 class ResourceOrmEntity(BaseModel):
@@ -104,4 +102,6 @@ def refresh_updated_at(mapper: Mapper, conn: Connection, instance):
         instance.updated_at = datetime.now(tz=timezone.utc)   # all timestamps are in UTC
 
 
-DB = _DB(SYNC_URL, ASYNC_URL, BaseModel)
+SYNC_URL = "sqlite:///dataset.db"
+ASYNC_URL = "sqlite+aiosqlite:///dataset.db"
+SQLITE_DB = KnowledgeDatabase(SYNC_URL, ASYNC_URL, BaseModel)

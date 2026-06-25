@@ -12,7 +12,7 @@ class Crawler:
     # The uri is an unique resource identification and
     # does not necesarily need to map to a single URL.
     # For example
-    async def crawl(uri: str) -> Resource: ...
+    async def crawl(self, uri: str) -> Resource: ...
 ```
 
 The `Resource` will be the persisted entity (before commit possibly, since commits can happen in batches) and will have the `Resource 1:---N: Page` relationships already loaded in.
