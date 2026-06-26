@@ -7,6 +7,7 @@ from content.entities import Resource
 from content.enums import ResourceCrawlerStatusEnum
 from crawlers import Crawler
 from logging_utils import get_logger
+from sqlalchemy import select, update
 
 
 class Controller:
@@ -23,29 +24,27 @@ class Controller:
 
     async def handle_completed_crawl_task(
         self,
-        uri: str,
-        result: asyncio.Future[Resource],
+        safe_future: asyncio.Future[tuple[str, Resource | Exception]],
         db: KnowledgeDatabase
     ) -> bool:
         """Handles a completed (successfully or not) task in the pool.
         If successful, adds the `Page` element, else logs the error
 
-        Returns:
-            bool: True if task was successful, else False
+        :parameter safe_future (Future[tuple[str, Resource | Exception]]): the completed future
+            It must return the uri back (so we can trace back to the original task)
+            and be safe for execution (return the error instead of throwing)
+        :returns status (bool): True if task was successful, else False
         """
-        try:
-            resource = await result
-        except Exception as e:
-            self.logger.exception(f"Crawling uri={uri} went wrong: error '''{e}'''")
-            exception_count += 1
+        uri, result = await safe_future
+        if isinstance(result, Exception):
+            self.logger.exception(f"Crawling uri={uri} went wrong: error '''{result}'''")
             return False
         else:
             async with db.async_session() as session:
-                await self.db.upsert(ResourceOrmEntity, unique_columns=["uri"], params={
-                    "pages": [PageOrmEntity.from_entity(page) for page in resource.pages],
-                    "crawl_status": ResourceCrawlerStatusEnum.DONE,
-                })
-            await session.commit()
+                resource = (await session.execute(select(ResourceOrmEntity).where(ResourceOrmEntity.uri == uri))).scalar_one()
+                resource.pages = [PageOrmEntity.from_entity(page, resource_id=resource.id) for page in result.pages]
+                resource.crawl_status = ResourceCrawlerStatusEnum.DONE
+                await session.commit()
             self.logger.info(f"Crawled uri={uri} successfully")
             return True
 
@@ -59,25 +58,29 @@ class Controller:
             None
         """
         semaphore = asyncio.Semaphore(self.max_pool_size)
-        async def rate_limited_crawl_task(uri: str):
-            async with semaphore:
-                return await self.crawler.crawl(uri)
+        async def safe_rate_limited_crawl_task(uri: str) -> tuple[str, Resource | Exception]:
+            try:
+                async with semaphore:
+                    return uri, await self.crawler.crawl(uri)
+            except Exception as e:
+                return uri, e
 
         async with self.db.async_session() as db_session:
             uri_to_resource_map = {}
             selected_uris = []
             async for uri in self.crawler.next_uris(db=self.db, limit=limit):
                 # queue resources to crawl
-                resouce = await self.db.upsert(ResourceOrmEntity, unique_columns=["uri"], params={"uri": uri, "source": self.crawler.source, "crawl_status": ResourceCrawlerStatusEnum.QUEUED}, session=db_session)
-                uri_to_resource_map[uri] = resouce
+                resource = await self.db.upsert(ResourceOrmEntity, unique_columns=["uri"], params={"uri": uri, "source": self.crawler.source, "crawl_status": ResourceCrawlerStatusEnum.QUEUED}, session=db_session)
+                uri_to_resource_map[uri] = resource
                 selected_uris.append(uri)
             await db_session.commit()
 
-            tasks = [asyncio.create_task(rate_limited_crawl_task(uri), name=uri) for uri in selected_uris]
+            pending = [asyncio.create_task(safe_rate_limited_crawl_task(uri), name=uri) for uri in selected_uris]
 
             success_count, exception_count = 0, 0
-            for task in asyncio.as_completed(tasks):
-                success = await self.handle_completed_crawl_task(uri=task.get_name(), result=task, db=self.db)
+            # https://stackoverflow.com/questions/50028465/python-get-reference-to-original-task-after-ordering-tasks-by-completion
+            for future in asyncio.as_completed(pending):
+                success = await self.handle_completed_crawl_task(safe_future=future, db=self.db)
                 if success:
                     success_count += 1
                 else:

@@ -30,6 +30,9 @@ class ResourceOrmEntity(BaseModel):
 
     pages: Mapped[list["PageOrmEntity"]] = relationship(
         "PageOrmEntity",
+        # NOTE: back_populates, used on both sides synchronizes relationships
+        # so the `resource` attribute in Page will be synchronized with the `pages` attribute here
+        # because of the `back_populates="resource"` here and `back_populates="pages"` there.
         back_populates="resource",
         # emits a highly optimized "SELECT ... FROM <child_table> WHERE <foreign_key> IN (<parent_id>)",
         # good for one-to-many like this one
@@ -67,7 +70,7 @@ class PageOrmEntity(BaseModel):
     resource: Mapped[ResourceOrmEntity]
     resource: Mapped["PageOrmEntity"] = relationship(
         "ResourceOrmEntity",
-        back_populates="page",
+        back_populates="pages",
         # good for many-to-one like this one
         lazy="joined",
     )
@@ -75,7 +78,6 @@ class PageOrmEntity(BaseModel):
     @staticmethod
     def from_entity(page: Page, resource_id: int) -> "PageOrmEntity":
         return PageOrmEntity(
-            id=page.id,
             resource_id=resource_id,
             url=page.url,
             content=page.content,

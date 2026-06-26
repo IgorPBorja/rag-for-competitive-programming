@@ -109,7 +109,7 @@ class CPAlgorithmsCrawler(Crawler):
             path = url.removeprefix("https://cp-algorithms.com/").removesuffix(".html")
             uri = f"cpalgo/{path}"
             if limit is not None and returned >= limit:
-                raise StopAsyncIteration
+                return
             else:
                 yield uri
                 returned += 1
