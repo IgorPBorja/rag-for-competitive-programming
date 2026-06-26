@@ -42,13 +42,10 @@ class ResourceOrmEntity(BaseModel):
 
     def to_entity(self) -> Resource:
         return Resource(
-            id=self.id,
             uri=self.uri,
             description=self.description,
             crawl_status=self.crawl_status,
             source=self.source,
-            created_at=self.created_at,
-            updated_at=self.updated_at,
             deleted_at=self.deleted_at,
             pages=[page.to_entity() for page in self.pages],
         )
@@ -59,11 +56,11 @@ class PageOrmEntity(BaseModel):
     id: Mapped[int] = mapped_column(primary_key=True)
     resource_id: Mapped[int] = mapped_column(ForeignKey("resource.id"))
     url: Mapped[str] = mapped_column(VARCHAR(500))
-    content: Mapped[str] = mapped_column(TEXT)
+    content: Mapped[str | None] = mapped_column(TEXT)
     tags: Mapped[dict[str, Any]] = mapped_column(JSON, default={})
     crawl_status: Mapped[PageCrawlerStatusEnum] = mapped_column(Enum(PageCrawlerStatusEnum), default=PageCrawlerStatusEnum.NOT_STARTED)
     checksum: Mapped[str | None]
-    crawl_failure_reason: Mapped[str | None]
+    crawl_failure_reason: Mapped[str | None] = mapped_column(TEXT)
     created_at: Mapped[datetime_default_now]
     updated_at: Mapped[datetime_default_now]
     deleted_at: Mapped[datetime | None]
@@ -76,18 +73,28 @@ class PageOrmEntity(BaseModel):
         lazy="joined",
     )
 
+    @staticmethod
+    def from_entity(page: Page, resource_id: int) -> "PageOrmEntity":
+        return PageOrmEntity(
+            id=page.id,
+            resource_id=resource_id,
+            url=page.url,
+            content=page.content,
+            tags=page.tags,
+            crawl_status=page.crawl_status,
+            checksum=page.checksum,
+            crawl_failure_reason=page.crawl_failure_reason,
+            deleted_at=page.deleted_at,
+        )
+
     def to_entity(self) -> Page:
         return Page(
-            id=self.id,
-            resource_id=self.resource.id,
             url=self.url,
             content=self.content,
             tags=self.tags,
             crawl_status=self.crawl_status,
             checksum=self.checksum,
             crawl_failure_reason=self.crawl_failure_reason,
-            created_at=self.created_at,
-            updated_at=self.updated_at,
             deleted_at=self.deleted_at,
         )
 
