@@ -19,6 +19,6 @@ class Resource:
     description: str | None
     crawl_status: ResourceCrawlerStatusEnum
     source: CrawlerSourceEnum
-    deleted_at: datetime | None
     pages: list[Page]
+    deleted_at: datetime | None = None
 

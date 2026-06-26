@@ -34,7 +34,7 @@ class Controller:
             bool: True if task was successful, else False
         """
         try:
-            content = await result
+            resource = await result
         except Exception as e:
             self.logger.exception(f"Crawling uri={uri} went wrong: error '''{e}'''")
             exception_count += 1
@@ -42,7 +42,7 @@ class Controller:
         else:
             async with db.async_session() as session:
                 await self.db.upsert(ResourceOrmEntity, unique_columns=["uri"], params={
-                    "pages": [PageOrmEntity.from_entity(page) for page in content.pages],
+                    "pages": [PageOrmEntity.from_entity(page) for page in resource.pages],
                     "crawl_status": ResourceCrawlerStatusEnum.DONE,
                 })
             await session.commit()

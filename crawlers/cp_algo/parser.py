@@ -68,7 +68,7 @@ class CodeBlockFormatter:
         return html
 
 
-class CPAlgoParser:
+class CPAlgorithmsParser:
     @staticmethod
     def to_markdown(html: PageElement) -> str:
         """
@@ -141,13 +141,13 @@ class CPAlgoParser:
         :return: markdown with only the relevant content
         """
         html = BeautifulSoup(raw_html, 'html.parser')
-        article = CPAlgoParser.get_base_content(html)
-        article = CPAlgoParser.remove_headers_until_first_h1(article)
-        article = CPAlgoParser.remove_contributors(article)
+        article = CPAlgorithmsParser.get_base_content(html)
+        article = CPAlgorithmsParser.remove_headers_until_first_h1(article)
+        article = CPAlgorithmsParser.remove_contributors(article)
         article = CodeBlockFormatter.format_all_blocks(article)
         with open("data/dbg_html", "w") as dump_file:
             dump_file.write(str(article))
-        return CPAlgoParser.to_markdown(article)
+        return CPAlgorithmsParser.to_markdown(article)
 
     @staticmethod
     def parse_navigation_page(raw_html: str) -> list[tuple[str, str]]:
@@ -182,4 +182,4 @@ if __name__ == "__main__":
     fpath = sys.argv[1]
     with open(fpath, 'r') as f:
         raw_content = f.read()
-    print(CPAlgoParser.parse(raw_content))
+    print(CPAlgorithmsParser.parse(raw_content))

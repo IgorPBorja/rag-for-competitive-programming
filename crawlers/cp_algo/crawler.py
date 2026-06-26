@@ -4,7 +4,7 @@ from hashlib import md5
 
 from content.entities import Page, Resource
 from crawlers import Crawler
-from crawlers.cp_algo.parser import CPAlgoParser
+from crawlers.cp_algo.parser import CPAlgorithmsParser
 from content.enums import CrawlerSourceEnum, PageCrawlerStatusEnum, ResourceCrawlerStatusEnum
 from logging_utils import get_logger
 
@@ -54,7 +54,7 @@ class CPAlgorithmsCrawler(Crawler):
             self.logger.exception(f"An error occurred on crawling URL='{url}': '{e}'")
             raise e
         try:
-            return CPAlgoParser.parse(raw_html)
+            return CPAlgorithmsParser.parse(raw_html)
         except Exception as e:
             self.logger.exception(f"An unexpected error occurred when parsing html from URL='{url}': '{e}'")
             raise e
@@ -70,8 +70,8 @@ class CPAlgorithmsCrawler(Crawler):
                 content=None,
                 tags=tags,
                 crawl_status=PageCrawlerStatusEnum.FAILED,
-                checksum=md5(content.encode("utf-8")).hexdigest(),
-                crawl_failure_reason=str(e.with_traceback()),
+                checksum=None,
+                crawl_failure_reason=str(e),
             )
         else:
             page = Page(
@@ -102,7 +102,7 @@ class CPAlgorithmsCrawler(Crawler):
         async with aiohttp.ClientSession() as http_session:
             async with http_session.get(NAVIGATION_URL) as response:
                 html_content = await response.text()
-        links = CPAlgoParser.parse_navigation_page(html_content)
+        links = CPAlgorithmsParser.parse_navigation_page(html_content)
         # TODO figure out how to use this description (the underscore) somehow
         returned = 0
         for url, _ in links:
