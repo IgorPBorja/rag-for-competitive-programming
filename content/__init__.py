@@ -1,0 +1,1 @@
+"""Module containing the entities that describe outside content for the agent (problems, blog posts, etc). Used heavily by the crawlers module"""
