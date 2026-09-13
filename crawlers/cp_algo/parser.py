@@ -98,7 +98,7 @@ class CPAlgorithmsParser:
         :param article:
         :return: modified article with content before title removed
         """
-        found_h1 = True
+        found_h1 = False
         while True:
             try:
                 # we have to call iter everytime since calling extract
@@ -145,8 +145,6 @@ class CPAlgorithmsParser:
         article = CPAlgorithmsParser.remove_headers_until_first_h1(article)
         article = CPAlgorithmsParser.remove_contributors(article)
         article = CodeBlockFormatter.format_all_blocks(article)
-        with open("data/dbg_html", "w") as dump_file:
-            dump_file.write(str(article))
         return CPAlgorithmsParser.to_markdown(article)
 
     @staticmethod
