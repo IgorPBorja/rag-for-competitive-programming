@@ -48,8 +48,6 @@ page
 | ---> created_at / updated_at / deleted_at
 ```
 
-About the status for resource crawling:
-* 
 
 Having sequential, auto-incrementing ids is fine because these are internal tables. The uri should be unique but that is not imposed as a hard requirement for now. Also **the URL in the page entity might not be unique, since the same URL in Codeforces can have the editorials for multiple problems**
 

@@ -37,6 +37,7 @@ class ResourceOrmEntity(BaseModel):
         # emits a highly optimized "SELECT ... FROM <child_table> WHERE <foreign_key> IN (<parent_id>)",
         # good for one-to-many like this one
         lazy="selectin",
+        cascade="all, delete-orphan",
     )
 
     # TODO we might need to drop this later

@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 from typing import AsyncGenerator
 
 from content.db.db import KnowledgeDatabase
-from content.db.sqlite import SQLITE_DB
 from content.entities import Resource
 from content.enums import CrawlerSourceEnum
 
