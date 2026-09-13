@@ -1,10 +1,9 @@
 from datetime import datetime, timezone
 from typing import Annotated, Any
-from sqlalchemy import Connection, Enum, TEXT, TIMESTAMP, VARCHAR, ForeignKey, UniqueConstraint, func, event
+from sqlalchemy import Enum, TEXT, TIMESTAMP, VARCHAR, ForeignKey, UniqueConstraint, func
 from sqlalchemy.orm import (
     declarative_base,
     Mapped,
-    Mapper,
     mapped_column,
     relationship,
 )
@@ -13,7 +12,28 @@ from sqlalchemy.types import JSON
 from content.entities import Resource, Page
 from content.enums import CrawlerSourceEnum, ResourceCrawlerStatusEnum, PageCrawlerStatusEnum 
 
-datetime_default_now = Annotated[Mapped[datetime], mapped_column(TIMESTAMP, default=datetime.now(), server_default=func.now())]
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+created_at_column = Annotated[
+    Mapped[datetime],
+    mapped_column(
+        TIMESTAMP(timezone=True),
+        default=utc_now,
+        server_default=func.now(),
+    ),
+]
+
+updated_at_column = Annotated[
+    Mapped[datetime],
+    mapped_column(
+        TIMESTAMP(timezone=True),
+        default=utc_now,
+        server_default=func.now(),
+        onupdate=utc_now,
+    ),
+]
 
 BaseModel = declarative_base()
 
@@ -24,8 +44,8 @@ class ResourceOrmEntity(BaseModel):
     description: Mapped[str | None] = mapped_column(TEXT)
     crawl_status: Mapped[ResourceCrawlerStatusEnum] = mapped_column(Enum(ResourceCrawlerStatusEnum), default=ResourceCrawlerStatusEnum.NOT_STARTED)
     source: Mapped[CrawlerSourceEnum]
-    created_at: Mapped[datetime_default_now]
-    updated_at: Mapped[datetime_default_now]
+    created_at: Mapped[created_at_column]
+    updated_at: Mapped[updated_at_column]
     deleted_at: Mapped[datetime | None]
 
     pages: Mapped[list["PageOrmEntity"]] = relationship(
@@ -64,8 +84,8 @@ class PageOrmEntity(BaseModel):
     crawl_status: Mapped[PageCrawlerStatusEnum] = mapped_column(Enum(PageCrawlerStatusEnum), default=PageCrawlerStatusEnum.NOT_STARTED)
     checksum: Mapped[str | None]
     crawl_failure_reason: Mapped[str | None] = mapped_column(TEXT)
-    created_at: Mapped[datetime_default_now]
-    updated_at: Mapped[datetime_default_now]
+    created_at: Mapped[created_at_column]
+    updated_at: Mapped[updated_at_column]
     deleted_at: Mapped[datetime | None]
 
     resource: Mapped[ResourceOrmEntity]
@@ -99,13 +119,3 @@ class PageOrmEntity(BaseModel):
             crawl_failure_reason=self.crawl_failure_reason,
             deleted_at=self.deleted_at,
         )
-
-
-@event.listens_for(Page, "before_update")
-@event.listens_for(Resource, "before_update")
-def refresh_updated_at(mapper: Mapper, conn: Connection, instance):
-    # if any columns changed (not counting multi-valued columns/relationships)
-    if(
-        hasattr(instance, "updated_at")
-    ):
-        instance.updated_at = datetime.now(tz=timezone.utc)   # all timestamps are in UTC
